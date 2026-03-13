@@ -1,15 +1,20 @@
 # OME-Zarr specification
 
-OME-Zarr uses the Zarr v3 data model.
+OME-Zarr uses the [Zarr v3 data model](https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html).
 A Zarr node is identified by a storage prefix and may either be a group or an array.
 Groups may contain other groups and/ or arrays.
-Every node has a metadata document storing information using the JSON data model.
-Every metadata document has a location for attributes.
+Every node has a metadata document storing information using the [JSON data model](https://datatracker.ietf.org/doc/html/rfc8259).
+Every metadata document has a location for attributes: optional, unstructured data.
 
 The below defines specifications for bioimaging data and associated metadata,
 in terms of hierarchies of Zarr nodes and OME-Zarr metadata stored in Zarr attributes.
 
 ## Conventions
+
+### Requirement levels
+
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED",  "MAY", and "OPTIONAL" in this document
+are to be interpreted as described in [RFC 2119](https://www.ietf.org/rfc/rfc2119.txt).
 
 ### Paths
 
@@ -17,9 +22,19 @@ Paths are encoded as strings.
 They use `/` as a separator in the POSIX fashion.
 The tree of prefixes can be traversed upwards using the `..` to mean "parent" in the POSIX fashion.
 
+### JSON Paths
+
+In this specification, members of JSON documents are referred to with [JSON Path](https://www.rfc-editor.org/rfc/rfc9535.html) syntax,
+e.g. `$.arrayKey[1].objectKey`.
+
 ## Hierarchy specifications
 
+Hierarchies are trees of Zarr nodes with specific OME-Zarr metadata structures.
+
 ### Hierarchy: Multiscale image
+
+Large images are often stored alongside downscaled versions (also known as mipmaps)
+so that a viewer can progressively load regions of interest at the appropriate zoom level.
 
 In OME-Zarr, a multiscale image is defined as a set of Zarr arrays within a hierarchy:
 
@@ -40,10 +55,7 @@ These arrays are referred to in the `multiscales` field of the OME object.
 my_image/  # attributes contain $.ome.multiscales
 ├── s0  # base Zarr array
 ├── s1  # downscaled Zarr array
-└── labels/  # attributes contain $.ome.labels
-    └── my_label/  # attributes contain $.ome.multiscales
-        ├── lbl0  # integer base Zarr array
-        └── lbl1  # integer downscaled Zarr array
+└── ...
 ```
 
 N.B. OME-Zarr always stores images as multiscales even if only the base scale level exists.
@@ -63,26 +75,37 @@ Zarr arrays in label multiscales MUST have an integer data type.
 The OME object in the Zarr attributes of label multiscales SHOULD have the `image-label` key
 (as well as the `multiscales` key).
 
+```text
+my_image/  # attributes contain $.ome.multiscales
+├── s0  # base Zarr array
+├── ...
+└── labels/  # attributes contain $.ome.labels
+    └── my_label/  # attributes contain $.ome.multiscales
+        ├── lbl0  # base Zarr array (integer)
+        ├── lbl1  # downscaled Zarr array (integer)
+        └── ...
+```
+
 ### Hierarchy: High-Content Screening
 
 In OME-Zarr, a high-content screen (HCS) is be represented by
 
 - a Zarr group representing the plate
   - the Zarr metadata attributes MUST contain an [OME object](#object-ome) under the `"ome"` key
-  - this OME object MUST contain the `plate` key
-- Zarr groups which are direct children of the plate group, representing rows of the plate
-- Zarr groups which are direct children of the row groups, representing wells on that row
+  - this OME object MUST contain the `"plate"` key
+- Zarr groups which MUST be direct children of the plate group, representing rows of the plate
+- Zarr groups which MUST be direct children of the row groups, representing wells on that row
   - the Zarr metadata attributes MUST contain an [OME object](#object-ome) under the `"ome"` key
-  - this OME object MUST contain the `well` key
-- Zarr groups which are direct children of the well groups, representing fields of view in that well
+  - this OME object MUST contain the `"well"` key
+- Zarr groups which MUST be direct children of the well groups, representing fields of view in that well
   - these fields of view are [multiscale images](#hierarchy-multiscale-image) as defined above
   - fields of view multiscale images MAY have labels
 
 ```text
 my_hcs_assay/  # plate; attributes contain $.ome.plate
-├── r0/
+├── r0/  # row
 │   ├── w0/  # well; attributes contain $.ome.well
-│   │   ├── f0/  # multiscale image; attributes contain $.ome.multiscales
+│   │   ├── f0/  # field of view multiscale image; attributes contain $.ome.multiscales
 │   │   │   ├── s0  # base Zarr array
 │   │   │   ├── s1  # downscaled Zarr array
 │   │   │   ├── ...
@@ -95,9 +118,9 @@ my_hcs_assay/  # plate; attributes contain $.ome.plate
 │   │   ├── f1/
 │   │   └── ...
 │   ├── w1/
-│   └── ...
+│   └── ...  # further wells
 ├── r1/
-└── ...
+└── ...  # further rows
 ```
 
 ## Object Specifications
@@ -147,12 +170,12 @@ Different keys MAY be present depending on which type of [hierarchy](#hierarchy-
 - MUST have the same length as the dimensionality of all Zarr arrays in this multiscale
 - Axis objects must have unique `name` fields in this metadata array
 - All Zarr arrays MUST have the `dimension_names` field set, which MUST match the order and values of the `name` fields of this `axes` array
-- MUST contain between 2 and 5 elements, with types in the order
-  - optional axis with `type` `"time"`
-  - optional axis with `type` `"channel"` (conventionally with `name` `"c"`), OR a custom string `type`, OR `null`, or omitted
-  - optional axis with `type` `"space"`, conventionally the anisotropic slicing axis, conventionally with `name` `"z"`
-  - required axis with `type` `"space"`, conventionally with `name` `"y"`
-  - required axis with `type` `"space"`, conventionally with `name` `"x"`
+- MUST contain between 2 and 5 elements, with types which MUST be in the order
+  - optional axis with [`type`](#enum-axis-type) `"time"`
+  - optional axis with [`type`](#enum-axis-type) `"channel"` (conventionally with `name` `"c"`), OR a custom string `type`, OR `null`, or omitted
+  - optional axis with [`type`](#enum-axis-type) `"space"`, conventionally the anisotropic slicing axis if appropriate, conventionally with `name` `"z"`
+  - required axis with [`type`](#enum-axis-type) `"space"`, conventionally with `name` `"y"`
+  - required axis with [`type`](#enum-axis-type) `"space"`, conventionally with `name` `"x"`
 
 #### Multiscale field: `coordinateTransformations`
 
@@ -160,7 +183,7 @@ Scale datasets' [`coordinateTransformations`](#dataset-field-coordinatetransform
 
 If, instead, they transform voxel coordinates into some other common coordinate system, this field converts those system's coordinates into physical coordinates, in which case this field
 
-- MUST contain 1 or 2 elements, with types in this order
+- MUST contain 1 or 2 elements, with types which MUST be in this order
   - required [Scale](#coordinate-transformation-variant-scale) transformation
   - optional [Translation](#coordinate-transformation-variant-translation) transformation
 
@@ -181,7 +204,7 @@ If, instead, they transform voxel coordinates into some other common coordinate 
 | key | necessity | type | description |
 | --- | --------- | ---- | ----------- |
 | `path` | MUST | string | Relative path to a Zarr array |
-| `coordinateTransformations` | MUST | array of [Coordinate Transformation](#tagged-union-coordinate-transformation) | Transformations applied in sequence to convert from voxel coordinates into the multiscale's common coordinate system |
+| `coordinateTransformations` | MUST | array of [Coordinate Transformation](#tagged-union-coordinate-transformation) | Transformations applied in sequence to convert from voxel coordinates into the scale arrays' common coordinate system |
 
 #### Dataset field: `coordinateTransformations`
 
@@ -311,7 +334,7 @@ If multiple fields of view were acquired for this well
 
 ### Tagged Union: Coordinate Transformation
 
-#### Coordinate Transformation Variant: Scale
+#### Coordinate Transformation variant: Scale
 
 | key | necessity | type | description |
 | --- | --------- | ---- | ----------- |
@@ -325,7 +348,7 @@ The scale coefficients' length MUST equal the dimensionality of the coordinates.
 
 For input coordinate `i[N]` and coefficients `c[N]`, the output coordinate `o[n] = i[n] * c[n]`.
 
-#### Coordinate Transformation Variant: Translation
+#### Coordinate Transformation variant: Translation
 
 | key | necessity | type | description |
 | --- | --------- | ---- | ----------- |
