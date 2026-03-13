@@ -76,11 +76,11 @@ The OME object in the Zarr attributes of label multiscales SHOULD have the `imag
 (as well as the `multiscales` key).
 
 ```text
-my_image/  # attributes contain $.ome.multiscales
+my_image/  # attributes MUST contain $.ome.multiscales
 ├── s0  # base Zarr array
 ├── ...
-└── labels/  # attributes contain $.ome.labels
-    └── my_label/  # attributes contain $.ome.multiscales
+└── labels/  # attributes MUST contain $.ome.labels
+    └── my_label/  # attributes contain $.ome.multiscales, SHOULD contain $.ome.image-label
         ├── lbl0  # base Zarr array (integer)
         ├── lbl1  # downscaled Zarr array (integer)
         └── ...
@@ -102,15 +102,15 @@ In OME-Zarr, a high-content screen (HCS) is be represented by
   - fields of view multiscale images MAY have labels
 
 ```text
-my_hcs_assay/  # plate; attributes contain $.ome.plate
+my_hcs_assay/  # plate; attributes MUST contain $.ome.plate
 ├── r0/  # row
-│   ├── w0/  # well; attributes contain $.ome.well
-│   │   ├── f0/  # field of view multiscale image; attributes contain $.ome.multiscales
+│   ├── w0/  # well; attributes MUST contain $.ome.well
+│   │   ├── f0/  # field of view multiscale image; attributes MUST contain $.ome.multiscales
 │   │   │   ├── s0  # base Zarr array
 │   │   │   ├── s1  # downscaled Zarr array
 │   │   │   ├── ...
-│   │   │   └── labels/  # labels container; attributes contain $.ome.labels
-│   │   │       ├── my_label/  # label multiscale; attributes contain $.ome.multiscales
+│   │   │   └── labels/  # optional labels container; attributes MUST contain $.ome.labels
+│   │   │       ├── my_label/  # label multiscale; attributes MUST contain $.ome.multiscales, SHOULD contain $.ome.image-label
 │   │   │       │   ├── lbl0  # integer base Zarr array
 │   │   │       │   ├── lbl1  # integer downscaled Zarr array
 │   │   │       │   └── ...
@@ -141,11 +141,11 @@ Different keys MAY be present depending on which type of [hierarchy](#hierarchy-
 | key | necessity | type | description |
 | --- | --------- | ---- | ----------- |
 | `version` | MUST | string | MUST have the value `"0.5"` |
-| `multiscales` | MUST for [multiscale images](#hierarchy-multiscale-image) | array of [Multiscale](#object-multiscale) | |
-| `labels` | MUST for [parent of label multiscales](#multiscales-with-labels) | array of string | |
+| `multiscales` | MUST for [multiscale images](#hierarchy-multiscale-image) | array of [Multiscale](#object-multiscale) | Designates Zarr group as a [multiscale image](#hierarchy-multiscale-image) |
+| `labels` | MUST for [`label` group](#multiscales-with-labels) inside multiscale image | array of string |  |
 | `image-label` | SHOULD for [label multiscales](#multiscales-with-labels) | array of [ImageLabel](#object-imagelabel) | |
-| `plate` | MUST for [HCS plates](#hierarchy-high-content-screening) | [Plate](#object-plate) | |
-| `well` | MUST for [HCS wells](#hierarchy-high-content-screening) | [Well](#object-well) | |
+| `plate` | MUST for [HCS plates](#hierarchy-high-content-screening) | [Plate](#object-plate) | Designates Zarr group as a [HCS](#hierarchy-high-content-screening) plate |
+| `well` | MUST for [HCS wells](#hierarchy-high-content-screening) | [Well](#object-well) | Designates Zarr group as a [HCS](#hierarchy-high-content-screening) well |
 | `bioformats2raw.layout` | MAY | `3` | transitional |
 | `series` | MAY | array of string | transitional |
 | `omero` | MAY | object | transitional |
