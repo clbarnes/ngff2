@@ -1,6 +1,9 @@
 # OME-Zarr specification reformat
 
 This project is not normative; it is a personal experiment on whether the specification could be made more approachable for implementors.
+It is a restatement of the [OME-Zarr v0.5 specification](https://ngff.openmicroscopy.org/specifications/0.5/index.html).
+
+The specification document is at [SPECIFICATION.md](./SPECIFICATION.md).
 
 ## Goals
 
